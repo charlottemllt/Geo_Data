@@ -3,7 +3,7 @@ import csv
 import json
 import config
 import pygeos
-import numpy as np
+import time
 
 def open_csv(filename: str) -> tuple[list[str], list[list[Any]]]:
     with open(filename, 'r') as csvfile:
@@ -17,25 +17,34 @@ def open_csv(filename: str) -> tuple[list[str], list[list[Any]]]:
 def open_json(filename: str):
     with open(filename) as f:
         data = json.load(f)
-    #for feature in data['features']:
-        #print(feature['properties']['NOM_IRIS'])
-        #print(feature['properties']['INSEE_COM'])
-        #print(feature['geometry']['coordinates'][0][0])
-        #break
     return data
 
 def compute_centroids(points: Iterable[tuple[float, float]], territories: dict[str, Any])-> Iterable[tuple[str, float, float]]:
     centroids = {}
     for iris in territories:
-        if iris['properties']['INSEE_COM'] in ["01002", "97605"]:
-            tree = pygeos.STRtree(points)
-            points_in_IRIS = tree.query(pygeos.polygons(iris['geometry']['coordinates'])[0][0], predicate='contains')
-            if len(points_in_IRIS) != 0:
-                n = len(points_in_IRIS)
-                coord = pygeos.get_coordinates(points[points_in_IRIS[:]])
+        tree = pygeos.STRtree(points)
+
+        if len(iris['geometry']['coordinates']) == 1:
+            if len(iris['geometry']['coordinates'][0]) > 1:
+                polygon = pygeos.polygons([iris['geometry']['coordinates'][0][0]], holes=[iris['geometry']['coordinates'][0][1]])[0]
+            else:
+                polygon = pygeos.polygons(iris['geometry']['coordinates'][0])[0]
+        else:
+            liste_polygon = []
+            for i in range(len(iris['geometry']['coordinates'])):
+                if len(iris['geometry']['coordinates'][i]) > 1:
+                    polygon = pygeos.polygons([iris['geometry']['coordinates'][i][0]], holes=[iris['geometry']['coordinates'][i][1]])[0]
+                else:
+                    polygon = pygeos.polygons(iris['geometry']['coordinates'][i])[0]
+                    liste_polygon.append(polygon)
+            polygon = pygeos.multipolygons(liste_polygon)
+        
+        points_in_IRIS = tree.query(polygon, predicate='contains')
+        if len(points_in_IRIS) != 0: 
+            n = len(points_in_IRIS)
+            coord = pygeos.get_coordinates(points[points_in_IRIS[:]])
             centroid_iris = sum(coord)/n
             centroid_iris = centroid_iris.tolist()
-
             tree_check = pygeos.STRtree([pygeos.points(centroid_iris)])
             ind = tree_check.query(pygeos.polygons(iris['geometry']['coordinates'])[0][0], predicate='contains')
             if ind.size == 0:
@@ -52,25 +61,21 @@ def convert_array_to_points(columns, rows):
         point.append(float(row[index_x]))
         point.append(float(row[index_y]))
         mes_points.append(point)
-    print(mes_points)
     return pygeos.points(mes_points)#.tolist()
 
-def empty(): 
-    my_list = [[2, 4], [2, 6], [2, 8]]
-    my_set_point = {e for l in my_list for e in l}
-
-    thisdict = {
-    "brand": "Ford",
-    "model": "Mustang",
-    "year": 1964
-    }
-    pass
-
 if __name__ == '__main__':
-    array = open_csv('df_test2.csv')
-    name_columns, rows = array
+    timer0 = time.time()
+    name_columns, rows = open_csv('df_test2.csv')
+    timer1 = time.time()
     points = convert_array_to_points(name_columns, rows)
-
+    timer2 = time.time()
     liste_IRIS = open_json(config.IRIS_FILENAME)
+    timer3 = time.time()
     centroids = compute_centroids(points, liste_IRIS['features'])
+    timer4 = time.time()
     print(centroids)
+
+    print('elapsed time for open_csv', timer1 - timer0, 's')
+    print('elapsed time for convert_array_to_points', timer2 - timer1, 's')
+    print('elapsed time for open_json', timer3 - timer2, 's')
+    print('elapsed time for compute_centroids', timer4 - timer3, 's')
