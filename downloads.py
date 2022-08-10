@@ -5,12 +5,12 @@ import shutil
 import config
 
 
-def download_file(file_url: string, filename: string) -> None:
+def download_file(file_url: str, filename: str) -> None:
     r = requests.get(file_url, stream=True)
     with open(filename,'wb') as f:
         f.write(r.content)
 
-def convert_gz_to_csv(gz_filename: string, csv_filename: string) -> None:
+def convert_gz_to_csv(gz_filename: str, csv_filename: str) -> None:
     with gzip.open(gz_filename, 'rb') as f_in:
         with open(csv_filename, 'wb') as f_out:
             shutil.copyfileobj(f_in, f_out)
