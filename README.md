@@ -4,5 +4,7 @@ This project aims at computing the density based center of mass for each french 
 
 ## Files
 config.py : contains main variables of the project (url of data for example)
+
 download.py : enables to download the file of addresses
+
 code.py: computes the center of mass for each IRIS
